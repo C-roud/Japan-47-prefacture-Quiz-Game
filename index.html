@@ -55,18 +55,86 @@
             font-weight: bold;
             color: #333;
         }
+
+        /* 入力欄のデザイン */
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 60%;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+
+        /* ボタンのデザイン */
+        .action-btn {
+            padding: 10px 20px;
+            background-color: #4dabf7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .action-btn:hover {
+            background-color: #339af0;
+        }
+
+        .action-btn.next {
+            background-color: #ff6b6b;
+        }
+
+        /* 次へボタンは赤 */
+
+        /* その他の装飾 */
+        .badge {
+            display: inline-block;
+            background: #20c997;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 
 <body>
     <div class="quiz-panel">
-        <h1>🗾 都道府県クイズ 🗾</h1>
-        <div class="question-box">
-            <p>ヒント1（名産品）： <span id="hint-food" class="highlight">???</span></p>
-            <p>ヒント2（県庁所在地）： <span id="hint-capital" class="highlight">???</span></p>
-            <p id="result-message">地図をクリックして回答してね！</p>
+        <h1>🗾 鬼特訓！都道府県道場 🗾</h1>
+
+        <div id="stage1-area">
+            <div class="question-box">
+                <p class="badge">第1問</p>
+                <p>この名産品の「場所」を選んで「県名」を書け！</p>
+                <h2 id="question-food" class="highlight">???</h2>
+            </div>
+
+            <div class="input-group">
+                <p>① 地図から場所をクリック（選択中：<span id="selected-status" style="color:red;">未選択</span>）</p>
+                <p>② 都道府県名を入力：</p>
+                <input type="text" id="pref-input" placeholder="例：青森県">
+                <button onclick="checkStage1()" class="action-btn">回答する</button>
+            </div>
         </div>
-        <button onclick="nextQuestion()">次の問題へ</button>
+
+        <div id="stage2-area" style="display:none; margin-top:20px; border-top:2px dashed #ccc; padding-top:20px;">
+            <p class="badge" style="background:orange;">第2問</p>
+            <p>正解！では、その県の「県庁所在地」は？</p>
+            <div class="input-group">
+                <input type="text" id="capital-input" placeholder="例：青森市">
+                <button onclick="checkStage2()" class="action-btn">回答する</button>
+            </div>
+        </div>
+
+        <div id="result-area" style="margin-top: 15px;">
+            <p id="result-message"></p>
+            <button onclick="nextQuestion()" id="next-btn" style="display:none;" class="action-btn next">次の問題へ</button>
+        </div>
     </div>
     <?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
@@ -3349,7 +3417,7 @@
              2328.50,2168.00 2329.33,2161.00 2329.33,2161.00
              2329.33,2161.00 2335.11,2161.36 2335.11,2161.36 Z
            M 2243.47,2422.36" />
-        <path id="HUKUI" transform="matrix(1.6628509, -0.3534499, 0.3534499, 1.662851, -2300, 300)" class="pref"
+        <path id="FUKUI" transform="matrix(1.6628509, -0.3534499, 0.3534499, 1.662851, -2300, 300)" class="pref"
             fill="#eeeeee" stroke="black" stroke-width="1" d="M 2183.16,2101.53
            C 2183.16,2101.53 2186.23,2101.81 2186.23,2101.81
              2186.23,2101.81 2185.67,2097.35 2185.67,2097.35
@@ -5720,54 +5788,123 @@
             { id: "OKINAWA", name: "沖縄県", capital: "那覇市", food: "ゴーヤチャンプルー、ちんすこう" }
         ];
 
-        let currentAnswer = null; // 今の正解を覚えておく変数
+        let currentAnswer = null; // 現在の正解データ
+        let selectedMapId = null; // ユーザーが地図で選んだ場所のID
 
-        // 2. ゲームを開始・次の問題を出す関数
-        function nextQuestion() {
-            // ランダムに1つ選ぶ
-            const randomIndex = Math.floor(Math.random() * prefData.length);
-            currentAnswer = prefData[randomIndex];
-
-            // 画面にヒントを表示
-            document.getElementById('hint-food').innerText = currentAnswer.food;
-            document.getElementById('hint-capital').innerText = currentAnswer.capital;
-
-            // メッセージをリセット
-            document.getElementById('result-message').innerText = "この県はどこでしょう？";
-            document.getElementById('result-message').style.color = "#333";
-        }
-
-        // 3. 地図がクリックされたときの処理
-        // ページ読み込み完了後に実行するように設定
+        // 初期化
         document.addEventListener('DOMContentLoaded', function () {
-
+            // 地図クリック時の処理登録
             const prefs = document.querySelectorAll('.pref');
-
             prefs.forEach(function (pref) {
                 pref.addEventListener('click', function () {
-
-                    // ゲームが始まっていないときは何もしない
-                    if (!currentAnswer) return;
-
-                    const clickedId = this.id; // クリックされた場所のID (例: HOKKAIDO)
-
-                    // 正解判定！
-                    if (clickedId === currentAnswer.id) {
-                        document.getElementById('result-message').innerText = "正解！そこが " + currentAnswer.name + " です！🎉";
-                        document.getElementById('result-message').style.color = "red";
-
-                        // 正解したら金色にする
-                        this.style.fill = "#ffcc00";
-                    } else {
-                        document.getElementById('result-message').innerText = "残念...そこではありません！";
-                        document.getElementById('result-message').style.color = "blue";
-                    }
+                    selectMap(this.id, this);
                 });
             });
-
-            // 最初に1問出題しておく
-            nextQuestion();
+            nextQuestion(); // 開始
         });
+
+        // --- 関数エリア ---
+
+        // 1. 地図をクリックしたときの処理（判定はしない。選ぶだけ）
+        function selectMap(id, element) {
+            // ステージ1が終わっていたら操作させない
+            if (document.getElementById('stage2-area').style.display === 'block') return;
+
+            // 一旦全部の色を戻す
+            document.querySelectorAll('.pref').forEach(p => p.style.fill = '#999999');
+
+            // 選んだ場所だけ色を変えて記録
+            element.style.fill = "#4dabf7"; // 青くする
+            selectedMapId = id;
+
+            document.getElementById('selected-status').innerText = "選択済";
+            document.getElementById('selected-status').style.color = "blue";
+        }
+
+        // 2. 第1ステージ判定（場所 ＋ 県名）
+        function checkStage1() {
+            const inputName = document.getElementById('pref-input').value.trim(); // 空白削除
+
+            // バリデーション（入力チェック）
+            if (!selectedMapId) {
+                alert("地図から場所を選んでください！");
+                return;
+            }
+            if (!inputName) {
+                alert("都道府県名を入力してください！");
+                return;
+            }
+
+            // 判定ロジック
+            const isMapCorrect = (selectedMapId === currentAnswer.id);
+            const isNameCorrect = (inputName === currentAnswer.name);
+
+            if (isMapCorrect && isNameCorrect) {
+                // 正解！ -> ステージ2へ
+                document.getElementById('result-message').innerText = "";
+
+                // 入力欄を無効化（ロック）
+                document.getElementById('pref-input').disabled = true;
+                // 地図を金色に
+                document.getElementById(selectedMapId).style.fill = "#ffcc00";
+
+                // ステージ2を表示
+                document.getElementById('stage2-area').style.display = 'block';
+                document.getElementById('capital-input').focus(); // 入力欄にカーソル移動
+
+            } else {
+                // 不正解...
+                let msg = "残念！";
+                if (!isMapCorrect) msg += "「場所」が違います。";
+                if (!isNameCorrect) msg += "「県名」が違います。";
+
+                endGame(false, msg);
+            }
+        }
+
+        // 3. 第2ステージ判定（県庁所在地）
+        function checkStage2() {
+            const inputCapital = document.getElementById('capital-input').value.trim();
+
+            if (inputCapital === currentAnswer.capital) {
+                endGame(true, "完全正解！お見事！🎉");
+            } else {
+                endGame(false, "惜しい！県庁所在地が違います。（正解：" + currentAnswer.capital + "）");
+            }
+        }
+
+        // 4. 問題終了処理
+        function endGame(isSuccess, message) {
+            const msgEl = document.getElementById('result-message');
+            msgEl.innerText = message;
+            msgEl.style.color = isSuccess ? "red" : "blue";
+
+            document.getElementById('next-btn').style.display = 'block'; // 次へボタン表示
+        }
+
+        // 5. 次の問題へ
+        function nextQuestion() {
+            // 変数リセット
+            selectedMapId = null;
+            document.getElementById('stage2-area').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('result-message').innerText = "";
+
+            // 入力欄リセット
+            document.getElementById('pref-input').value = "";
+            document.getElementById('pref-input').disabled = false;
+            document.getElementById('capital-input').value = "";
+            document.getElementById('selected-status').innerText = "未選択";
+            document.getElementById('selected-status').style.color = "red";
+
+            // 地図色リセット
+            document.querySelectorAll('.pref').forEach(p => p.style.fill = '#999999');
+
+            // 出題
+            const randomIndex = Math.floor(Math.random() * prefData.length);
+            currentAnswer = prefData[randomIndex];
+            document.getElementById('question-food').innerText = currentAnswer.food;
+        }
 
     </script>
 
